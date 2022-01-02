@@ -3,7 +3,7 @@
 Cookie-based sessions module for the
 [Opine web framework](https://github.com/cmorten/opine).
 
-(The author is unafilliated with Opine's maintainers.)
+(Unafilliated with Opine's maintainers.)
 
 ## Usage
 
