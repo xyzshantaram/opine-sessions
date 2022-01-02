@@ -10,7 +10,7 @@ Cookie-based sessions module for the
 ### Import the module
 
 ```ts
-import sessions from "https://deno.land/x/sessions@1.0.0/mod.ts";
+import sessions from "https://deno.land/x/sessions@1.0.2/mod.ts";
 ```
 
 ### Initialise

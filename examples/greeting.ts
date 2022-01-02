@@ -1,5 +1,5 @@
 import { opine, urlencoded } from 'https://deno.land/x/opine@2.0.2/mod.ts';
-import sessions from '../mod.ts';
+import sessions from 'https://deno.land/x/opine_sessions@1.0.2/mod.ts';
 
 const app = opine();
 
