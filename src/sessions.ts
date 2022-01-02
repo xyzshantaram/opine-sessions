@@ -2,61 +2,142 @@
 import { DB, OpineRequest, OpineResponse, getCookies, Opine } from "./deps.ts";
 import { execute, fetchOptional } from "./utils.ts";
 
-export function init(app: Opine) {
-    app.set('session', new SqliteSessionStore());
+/**
+ * A generic store. Implement this and pass an instance of it
+ * to init() to use your own database solution instead of
+ * the default sqlite.
+*/
+export interface Store {
+    /**
+     * Create a new session.
+     * @returns a unique session id.
+    */
+    createSession: () => string;
+    /** 
+     * Get the session contents as a JavaScript object.
+    */
+    getSession: (sid: string) => Record<string, any>;
+    /**
+     * Get the value associated with `key` for the session `sid`.
+     * @param sid A unique session id returned from createSession.
+     * @param key The key of the value to retrieve.
+    */
+    get<T>(sid: string, key: string): T | null;
+    /**
+     * Set the value associated with `key` for the session `sid`.
+     * @param sid A unique session id returned from createSession.
+     * @param key The key to set.
+     * @param val the value to set.
+    */
+    set: (sid: string, key: string, val: any) => void;
+    /**
+     * Delete the value associated with `key` for the session `sid`.
+     * @param sid A unique session id returned from createSession.
+     * @param key The key to delete.
+    */
+    delete: (sid: string, key: string) => void;
+    /**
+     * Clear all session variables associated with a `sid`.
+     * @param sid A unique session id returned from createSession.
+    */
+    clear: (sid: string) => void;
 }
 
+/**
+ * 
+ * @param app The app you want to use sessions with.
+ * @param options An options object.
+ * @param options.store A store to use instead of the default SQLite store.
+ */
+export function init(app: Opine, options?: {
+    store: Store
+}) {
+    app.set('session', options?.store || new SqliteStore());
+}
+
+/**
+ * 
+ * @param req The request object from your route handler
+ * @param res The response object from your route handler
+ * @returns a session object
+ */
 export function getClient(req: OpineRequest, res: OpineResponse) {
+    const store: Store = req.app.get('session');
     let { sid } = getCookies(req.headers);
-    const session: SqliteSessionStore = req.app.get('session');
 
     if (!sid) {
-        sid = session.createSession();
+        sid = store.createSession();
         res.cookie('sid', sid, {
             expires: new Date(Date.now() + 864e5),
             httpOnly: true
         });
     }
-    return new ClientSession(sid, session);
+
+    return new ClientSession(sid, store);
 }
 
-export function destroy(res: OpineResponse, sid: string) {
+/** 
+ * Destroy the session by clearing its cookie.
+ * @param res The response object from your route handler.
+*/
+export function destroy(res: OpineResponse) {
     res.clearCookie('sid');
-    res.app.get('session').drop(sid);
 }
 
-class ClientSession {
-    sid: string;
-    session: SqliteSessionStore;
+/**
+ * A class representing the session for a particular client. Acts as a key-value data store.
+ * **Exported only for type annotations. Do not construct this class directly.**
+*/
+export class ClientSession {
+    private sid: string;
+    private store: Store;
 
-    constructor(sid: string, session: SqliteSessionStore) {
+    /**
+     * ## DO NOT CONSTRUCT THIS CLASS DIRECTLY!
+     * **Use `getClient(req, res)`!**
+     */
+    constructor(sid: string, store: Store) {
         this.sid = sid;
-        this.session = session;
+        this.store = store;
     }
 
+    /**
+     * Get the value of a session variable.
+     * @param key The key associated with the value to retrieve.
+     * @returns The requested value, or null.
+     */
     get<T>(key: string): T | null {
-        return this.session.get<T>(this.sid, key);
+        return this.store.get<T>(this.sid, key);
     }
 
+    /**
+     * Set the value associated with `key` to be `val`.
+     * @param key The key to modify.
+     * @param val The value to set.
+     */
     set(key: string, val: any) {
-        this.session.set(this.sid, key, val);
+        this.store.set(this.sid, key, val);
     }
 
+    /**
+     * Delete a value from the store.
+     * @param key The key to delete.
+     */
     delete(key: string) {
-        this.session.delete(this.sid, key);
+        this.store.delete(this.sid, key);
     }
 
+    /**
+     * Clear all session variables for this store.
+     */
     clear() {
-        this.session.clear(this.sid);
-    }
-
-    drop() {
-        this.session.drop(this.sid);
+        this.store.clear(this.sid);
     }
 }
 
-class SqliteSessionStore {
+class SqliteStore implements Store {
     db: DB;
+
     constructor() {
         this.db = new DB('./sessions.db');
         execute(this.db, 'CREATE TABLE IF NOT EXISTS sessions(id TEXT UNIQUE NOT NULL, data TEXT not null);');
@@ -104,9 +185,5 @@ class SqliteSessionStore {
 
     clear(sid: string) {
         execute(this.db, 'UPDATE sessions SET data = ? where id = ?', '{}', sid);
-    }
-
-    drop(sid: string) {
-        execute(this.db, 'DELETE from sessions where id = ?', sid);
     }
 }
