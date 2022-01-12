@@ -61,15 +61,20 @@ export function init(app: Opine, options?: {
  * @param res The response object from your route handler
  * @returns a session object
  */
-export function getClient(req: OpineRequest, res: OpineResponse) {
+export function getClient(req: OpineRequest, res: OpineResponse, options?: {
+    expires?: Date,
+    httpOnly?: boolean,
+    sameSite?: "Lax" | "Strict" | "None"
+}) {
     const store: Store = req.app.get('session');
     let { sid } = getCookies(req.headers);
 
     if (!sid) {
         sid = store.createSession();
         res.cookie('sid', sid, {
-            expires: new Date(Date.now() + 864e5),
-            httpOnly: true
+            expires: options?.expires || new Date(Date.now() + 7 * 864e5),
+            httpOnly: options?.httpOnly || true,
+            sameSite: options?.sameSite || "Lax"
         });
     }
 
