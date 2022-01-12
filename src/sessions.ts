@@ -55,17 +55,29 @@ export function init(app: Opine, options?: {
     app.set('session', options?.store || new SqliteStore());
 }
 
+export interface SessionOptions {
+    /**
+     * A Date object denoting the expiry of the session identifier cookie. Defaults to 7 days from creation.
+    */
+    expires?: Date,
+    /**
+     * Whether the cookie should be accessible from JS. It is recommended to set this to true.
+    */
+    httpOnly?: boolean,
+    /**
+     * The same-site policy for the session cookie. Set to Strict by default.
+    */
+    sameSite?: "Lax" | "Strict" | "None"
+}
+
 /**
  * 
  * @param req The request object from your route handler
  * @param res The response object from your route handler
+ * @param options Extra options for the session cookie
  * @returns a session object
  */
-export function getClient(req: OpineRequest, res: OpineResponse, options?: {
-    expires?: Date,
-    httpOnly?: boolean,
-    sameSite?: "Lax" | "Strict" | "None"
-}) {
+export function getClient(req: OpineRequest, res: OpineResponse, options?: SessionOptions) {
     const store: Store = req.app.get('session');
     let { sid } = getCookies(req.headers);
 
@@ -74,7 +86,7 @@ export function getClient(req: OpineRequest, res: OpineResponse, options?: {
         res.cookie('sid', sid, {
             expires: options?.expires || new Date(Date.now() + 7 * 864e5),
             httpOnly: options?.httpOnly || true,
-            sameSite: options?.sameSite || "Lax"
+            sameSite: options?.sameSite || "Strict"
         });
     }
 
