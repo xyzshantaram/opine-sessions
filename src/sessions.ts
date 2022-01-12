@@ -1,5 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-import { DB, OpineRequest, OpineResponse, getCookies, Opine } from "./deps.ts";
+import { DB, OpineRequest, OpineResponse, getCookies, Opine, WorkerSqliteDb } from "./deps.ts";
 import { execute, fetchOptional } from "./utils.ts";
 
 /**
@@ -219,5 +219,68 @@ class SqliteStore implements Store {
         catch (e) {
             return Promise.reject(e);
         }
+    }
+}
+
+export class AsyncSqliteStore implements Store {
+    db: WorkerSqliteDb;
+    initialised = false;
+
+    constructor() {
+        this.db = new WorkerSqliteDb('./sessions.db');
+    }
+
+    async init() {
+        await this.db.execute('CREATE TABLE IF NOT EXISTS sessions(id TEXT UNIQUE NOT NULL, data TEXT not null);');
+        this.initialised = true;
+    }
+
+    async createSession() {
+        if (!this.initialised) throw new Error('Attempt to use uninitialised store');
+        const id = crypto.randomUUID();
+        await this.db.execute('insert into sessions(id, data) VALUES(?, ?);', id, '{}');
+        return id;
+    }
+
+    async getSession(sid: string): Promise<Record<string, any>> {
+        if (!this.initialised) throw new Error('Attempt to use uninitialised store');
+        const rows = await this.db.query('SELECT data FROM sessions WHERE id = ?', sid);
+        if (rows.length != 0) {
+            return JSON.parse(rows[0].data as string || '{}');
+        }
+
+        await this.db.execute('INSERT INTO sessions(id, data) VALUES(?, ?);', sid, '{}');
+        return {};
+    }
+
+    async persist(sid: string, data: Record<string, any>) {
+        if (!this.initialised) throw new Error('Attempt to use uninitialised store');
+        await this.db.execute('UPDATE sessions SET data = ? WHERE id = ?;', JSON.stringify(data), sid);
+    }
+
+    async get<T>(sid: string, key: string): Promise<T | null> {
+        if (!this.initialised) throw new Error('Attempt to use uninitialised store');
+        const session = await this.getSession(sid);
+        const val: T | null = session[key] || null;
+        return val;
+    }
+
+    async set(sid: string, key: string, val: any) {
+        if (!this.initialised) throw new Error('Attempt to use uninitialised store');
+        const session = await this.getSession(sid);
+        session[key] = val;
+        await this.persist(sid, session);
+    }
+
+    async delete(sid: string, key: string) {
+        if (!this.initialised) throw new Error('Attempt to use uninitialised store');
+        const session = await this.getSession(sid);
+        delete session[key];
+        await this.persist(sid, session);
+    }
+
+    async clear(sid: string) {
+        if (!this.initialised) throw new Error('Attempt to use uninitialised store');
+        await this.db.execute('UPDATE sessions SET data = ? where id = ?', '{}', sid);
     }
 }

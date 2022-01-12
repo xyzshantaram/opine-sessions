@@ -1,6 +1,6 @@
-import { init, destroy, getClient } from "./src/sessions.ts";
+import { init, destroy, getClient, AsyncSqliteStore } from "./src/sessions.ts";
 
 export type { Store } from './src/sessions.ts';
 
-export { init, destroy, getClient };
-export default { init, destroy, getClient };
+export { init, destroy, getClient, AsyncSqliteStore };
+export default { init, destroy, getClient, AsyncSqliteStore };

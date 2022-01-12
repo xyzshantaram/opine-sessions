@@ -10,7 +10,7 @@ Cookie-based sessions module for the
 ### Import the module
 
 ```ts
-import sessions from "https://deno.land/x/opine_sessions@1.0.2/mod.ts";
+import sessions from "https://deno.land/x/opine_sessions@2.0.0/mod.ts";
 ```
 
 ### Initialise
@@ -20,21 +20,39 @@ const app = opine();
 sessions.init(app);
 ```
 
-By default, this module will use `x/sqlite` to store data in an SQLite database.
-However, you can use a storage solution of your choice by passing an instance of
-a class that implements the Store interface.
+#### Experimental async store
+
+By default, this module will use [`x/sqlite`](https://deno.land/x/sqlite) to
+store data in an SQLite database. `x/sqlite` does db operations on the main
+thread - this is not ideal for web applications with large amounts of traffic.
+
+This module ships with an experimental async store based on
+[worker_sqlite](https://deno.land/x/worker_sqlite) that operates by wrapping
+`x/sqlite` in a Worker thread. You can use it by doing:
 
 ```ts
-import sessions from "https://deno.land/x/sessions@1.0.0/mod.ts";
-import { Store } from "https://deno.land/x/sessions@1.0.0/mod.ts";
+import sessions from "https://deno.land/x/opine_sessions@2.0.0/mod.ts";
+const store = new sessions.AsyncSqliteStore();
+await store.init(); // you MUST do this before using sessions
+
+sessions.init(app, { store });
+```
+
+#### Other storage methods
+
+Additionally, you can use a storage solution of your choice by passing an
+instance of a class that implements the Store interface.
+
+```ts
+import sessions from "https://deno.land/x/opine_sessions@2.0.0/mod.ts";
+import { Store } from "https://deno.land/x/opine_sessions@2.0.0/mod.ts";
 
 class CustomStore implements Store {
   /* implementation */
 }
 
-sessions.init(app, {
-  store: new CustomStore(),
-});
+const store = new CustomStore();
+sessions.init(app, { store });
 ```
 
 ### Using sessions
@@ -53,7 +71,7 @@ app.get("/", async (req, res) => {
 });
 ```
 
-For a more complete example, see [examples/greeting.ts](examples/greeting.ts).
+For a more complete example, see the [examples](examples/).
 
 ## License
 
