@@ -1,5 +1,5 @@
 import { opine, urlencoded } from 'https://deno.land/x/opine@2.0.2/mod.ts';
-import sessions from 'https://deno.land/x/opine_sessions@1.0.2/mod.ts';
+import sessions from '../mod.ts';
 
 const app = opine();
 
@@ -9,9 +9,9 @@ app.use(urlencoded({
 
 sessions.init(app);
 
-app.get('/', (req, res) => {
-    const session = sessions.getClient(req, res);
-    const name = session.get<string>('name');
+app.get('/', async (req, res) => {
+    const session = await sessions.getClient(req, res);
+    const name = await session.get<string>('name');
 
     res.send(`
     <html>
@@ -32,14 +32,14 @@ app.get('/', (req, res) => {
     `);
 })
 
-app.post('/setname', (req, res) => {
-    const session = sessions.getClient(req, res);
+app.post('/setname', async (req, res) => {
+    const session = await sessions.getClient(req, res);
     if (req.body.name && req.body.cmd === 'Update') {
-        session.set('name', req.body.name);
+        await session.set('name', req.body.name);
         res.redirect('/');
     }
     if (req.body.cmd === 'Clear') {
-        session.delete('name');
+        await session.delete('name');
         res.redirect('/');
     }
     else {

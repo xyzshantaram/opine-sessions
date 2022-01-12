@@ -42,13 +42,13 @@ sessions.init(app, {
 Get a session object by calling `getClient()` and use its methods:
 
 ```ts
-app.get("/", (req, res) => {
-  const session = sessions.getClient(req, res);
-  const name = session.get<string>("name");
-  session.set("name", "shantaram");
-  session.delete("shantaram");
+app.get("/", async (req, res) => {
+  const session = await sessions.getClient(req, res);
+  const name = await session.get<string>("name");
+  await session.set("name", "shantaram");
+  await session.delete("shantaram");
 
-  session.set("website", "shantaram.xyz");
+  await session.set("website", "shantaram.xyz");
   session.clear();
 });
 ```

@@ -12,39 +12,39 @@ export interface Store {
      * Create a new session.
      * @returns a unique session id.
     */
-    createSession: () => string;
+    createSession: () => Promise<string>;
     /** 
      * Get the session contents as a JavaScript object.
     */
-    getSession: (sid: string) => Record<string, any>;
+    getSession: (sid: string) => Promise<Record<string, any>>;
     /**
      * Get the value associated with `key` for the session `sid`.
      * @param sid A unique session id returned from createSession.
      * @param key The key of the value to retrieve.
     */
-    get<T>(sid: string, key: string): T | null;
+    get<T>(sid: string, key: string): Promise<T | null>;
     /**
      * Set the value associated with `key` for the session `sid`.
      * @param sid A unique session id returned from createSession.
      * @param key The key to set.
      * @param val the value to set.
     */
-    set: (sid: string, key: string, val: any) => void;
+    set: (sid: string, key: string, val: any) => Promise<void>;
     /**
      * Delete the value associated with `key` for the session `sid`.
      * @param sid A unique session id returned from createSession.
      * @param key The key to delete.
     */
-    delete: (sid: string, key: string) => void;
+    delete: (sid: string, key: string) => Promise<void>;
     /**
      * Clear all session variables associated with a `sid`.
      * @param sid A unique session id returned from createSession.
     */
-    clear: (sid: string) => void;
+    clear: (sid: string) => Promise<void>;
 }
 
 /**
- * 
+ * Initialise sessions for the given Opine app.
  * @param app The app you want to use sessions with.
  * @param options An options object.
  * @param options.store A store to use instead of the default SQLite store.
@@ -77,12 +77,12 @@ export interface SessionOptions {
  * @param options Extra options for the session cookie
  * @returns a session object
  */
-export function getClient(req: OpineRequest, res: OpineResponse, options?: SessionOptions) {
+export async function getClient(req: OpineRequest, res: OpineResponse, options?: SessionOptions) {
     const store: Store = req.app.get('session');
     let { sid } = getCookies(req.headers);
 
     if (!sid) {
-        sid = store.createSession();
+        sid = await store.createSession();
         res.cookie('sid', sid, {
             expires: options?.expires || new Date(Date.now() + 7 * 864e5),
             httpOnly: options?.httpOnly || true,
@@ -123,8 +123,8 @@ export class ClientSession {
      * @param key The key associated with the value to retrieve.
      * @returns The requested value, or null.
      */
-    get<T>(key: string): T | null {
-        return this.store.get<T>(this.sid, key);
+    async get<T>(key: string) {
+        return await this.store.get<T>(this.sid, key);
     }
 
     /**
@@ -132,23 +132,23 @@ export class ClientSession {
      * @param key The key to modify.
      * @param val The value to set.
      */
-    set(key: string, val: any) {
-        this.store.set(this.sid, key, val);
+    async set(key: string, val: any) {
+        await this.store.set(this.sid, key, val);
     }
 
     /**
      * Delete a value from the store.
      * @param key The key to delete.
      */
-    delete(key: string) {
-        this.store.delete(this.sid, key);
+    async delete(key: string) {
+        await this.store.delete(this.sid, key);
     }
 
     /**
      * Clear all session variables for this store.
      */
-    clear() {
-        this.store.clear(this.sid);
+    async clear() {
+        await this.store.clear(this.sid);
     }
 }
 
@@ -161,46 +161,63 @@ class SqliteStore implements Store {
     }
 
     createSession() {
-        const id = crypto.randomUUID();
-        execute(this.db, 'insert into sessions(id, data) VALUES(?, ?);', id, '{}');
-        return id;
+        try {
+            const id = crypto.randomUUID();
+            execute(this.db, 'insert into sessions(id, data) VALUES(?, ?);', id, '{}');
+            return Promise.resolve(id);
+        }
+        catch (e) {
+            return Promise.reject(e);
+        }
     }
 
     getSession(sid: string) {
-        const data = fetchOptional<string[]>(this.db, 'SELECT data FROM sessions WHERE id = ?', sid);
-        let parsed: Record<string, any>;
-        if (data) {
-            parsed = JSON.parse(data[0] || '{}');
+        try {
+            const data = fetchOptional<string[]>(this.db, 'SELECT data FROM sessions WHERE id = ?', sid);
+            let parsed: Record<string, any>;
+            if (data) {
+                parsed = JSON.parse(data[0] || '{}');
+            }
+            else {
+                execute(this.db, 'INSERT INTO sessions(id, data) VALUES(?, ?);', sid, '{}');
+                parsed = {};
+            }
+            return Promise.resolve(parsed);
         }
-        else {
-            execute(this.db, 'INSERT INTO sessions(id, data) VALUES(?, ?);', sid, '{}');
-            parsed = {};
+        catch (e) {
+            return Promise.reject(e);
         }
-        return parsed;
     }
 
     persist(sid: string, data: Record<string, any>) {
         execute(this.db, 'UPDATE sessions SET data = ? WHERE id = ?;', JSON.stringify(data), sid);
     }
 
-    get<T>(sid: string, key: string): T | null {
-        const session = this.getSession(sid);
-        return session[key] || null;
+    async get<T>(sid: string, key: string): Promise<T | null> {
+        const session = await this.getSession(sid);
+        const val: T | null = session[key] || null;
+        return Promise.resolve(val);
     }
 
-    set(sid: string, key: string, val: any) {
-        const session = this.getSession(sid);
+    async set(sid: string, key: string, val: any) {
+        const session = await this.getSession(sid);
         session[key] = val;
         this.persist(sid, session);
     }
 
-    delete(sid: string, key: string) {
-        const session = this.getSession(sid);
+    async delete(sid: string, key: string) {
+        const session = await this.getSession(sid);
         delete session[key];
         this.persist(sid, session);
     }
 
     clear(sid: string) {
-        execute(this.db, 'UPDATE sessions SET data = ? where id = ?', '{}', sid);
+        try {
+            execute(this.db, 'UPDATE sessions SET data = ? where id = ?', '{}', sid);
+            return Promise.resolve();
+        }
+        catch (e) {
+            return Promise.reject(e);
+        }
     }
 }
