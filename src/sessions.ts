@@ -1,5 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-import { DB, OpineRequest, OpineResponse, getCookies, Opine, WorkerSqliteDb } from "./deps.ts";
+import { DB, OpineRequest, OpineResponse, getCookies, Opine, WorkerSqliteDb, CookieOptions } from "./deps.ts";
 import { execute, fetchOptional } from "./utils.ts";
 
 /**
@@ -56,18 +56,7 @@ export function init(app: Opine, options?: {
 }
 
 export interface SessionOptions {
-    /**
-     * A Date object denoting the expiry of the session identifier cookie. Defaults to 7 days from creation.
-    */
-    expires?: Date,
-    /**
-     * Whether the cookie should be accessible from JS. It is recommended to set this to true.
-    */
-    httpOnly?: boolean,
-    /**
-     * The same-site policy for the session cookie. Set to Strict by default.
-    */
-    sameSite?: "Lax" | "Strict" | "None"
+  cookie?: CookieOptions;
 }
 
 /**
@@ -83,10 +72,11 @@ export async function getClient(req: OpineRequest, res: OpineResponse, options?:
 
     if (!sid) {
         sid = await store.createSession();
-        res.cookie('sid', sid, {
-            expires: options?.expires || new Date(Date.now() + 7 * 864e5),
-            httpOnly: options?.httpOnly || true,
-            sameSite: options?.sameSite || "Strict"
+        res.cookie("sid", sid, {
+          expires: new Date(Date.now() + 7 * 864e5),
+          httpOnly: true,
+          sameSite: "Strict",
+          ...(options?.cookie || {}),
         });
     }
 
