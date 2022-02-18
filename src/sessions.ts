@@ -47,36 +47,45 @@ export interface Store {
  * Initialise sessions for the given Opine app.
  * @param app The app you want to use sessions with.
  * @param options An options object.
- * @param options.store A store to use instead of the default SQLite store.
  */
-export function init(app: Opine, options?: {
-    store: Store
-}) {
+export function init(app: Opine, options?: SessionOptions) {
     app.set('session', options?.store || new SqliteStore());
+    app.set('sessions-cookie-options', options?.cookie || {});
 }
 
 export interface SessionOptions {
-  cookie?: CookieOptions;
+    /**
+     * Options for the session cookie. This is a Deno
+     * [Cookie](https://doc.deno.land/https://deno.land/std@0.126.0/http/mod.ts/~/Cookie)
+     * interface without the name and value fields.
+    */
+    cookie?: CookieOptions;
+
+    /**
+     *  A store to use instead of the default SQLite store.
+    */
+    store?: Store;
 }
 
 /**
  * 
  * @param req The request object from your route handler
  * @param res The response object from your route handler
- * @param options Extra options for the session cookie
  * @returns a session object
  */
-export async function getClient(req: OpineRequest, res: OpineResponse, options?: SessionOptions) {
+export async function getClient(req: OpineRequest, res: OpineResponse) {
     const store: Store = req.app.get('session');
     let { sid } = getCookies(req.headers);
+
+    const cookieOptions = req.app.get('sessions-cookie-options');
 
     if (!sid) {
         sid = await store.createSession();
         res.cookie("sid", sid, {
-          expires: new Date(Date.now() + 7 * 864e5),
-          httpOnly: true,
-          sameSite: "Strict",
-          ...(options?.cookie || {}),
+            expires: new Date(Date.now() + 7 * 864e5),
+            httpOnly: true,
+            sameSite: "Strict",
+            ...(cookieOptions || {}),
         });
     }
 
