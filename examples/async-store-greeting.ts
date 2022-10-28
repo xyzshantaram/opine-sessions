@@ -1,5 +1,6 @@
-import { opine, urlencoded } from 'https://deno.land/x/opine@2.1.1/mod.ts';
+import { opine, urlencoded } from 'https://deno.land/x/opine@2.3.3/mod.ts';
 import sessions from '../mod.ts';
+import { OpineRequest, OpineResponse } from '../src/deps.ts';
 
 const app = opine();
 
@@ -12,7 +13,7 @@ await store.init();
 
 sessions.init(app, { store });
 
-app.get('/', async (req, res) => {
+app.get('/', async (req: OpineRequest, res: OpineResponse) => {
     const session = await sessions.getClient(req, res);
     const name = await session.get<string>('name');
 
@@ -35,7 +36,7 @@ app.get('/', async (req, res) => {
     `);
 })
 
-app.post('/setname', async (req, res) => {
+app.post('/setname', async (req: OpineRequest, res: OpineResponse) => {
     const session = await sessions.getClient(req, res);
     if (req.body.name && req.body.cmd === 'Update') {
         await session.set('name', req.body.name);

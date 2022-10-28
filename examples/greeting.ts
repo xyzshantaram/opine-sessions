@@ -1,4 +1,4 @@
-import { opine, urlencoded } from 'https://deno.land/x/opine@2.1.1/mod.ts';
+import { opine, urlencoded } from 'https://deno.land/x/opine@2.3.3/mod.ts';
 import sessions from '../mod.ts';
 
 const app = opine();
