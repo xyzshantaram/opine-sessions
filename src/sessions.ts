@@ -154,8 +154,8 @@ export class ClientSession {
 class SqliteStore implements Store {
     db: DB;
 
-    constructor() {
-        this.db = new DB('./sessions.db');
+    constructor(dbPath?: string) {
+        this.db = new DB(dbPath || './sessions.db');
         execute(this.db, 'CREATE TABLE IF NOT EXISTS sessions(id TEXT UNIQUE NOT NULL, data TEXT not null);');
     }
 
@@ -225,8 +225,8 @@ export class AsyncSqliteStore implements Store {
     db: WorkerSqliteDb;
     initialised = false;
 
-    constructor() {
-        this.db = new WorkerSqliteDb('./sessions.db');
+    constructor(dbPath?: string) {
+        this.db = new WorkerSqliteDb(dbPath || './sessions.db');
     }
 
     async init() {
